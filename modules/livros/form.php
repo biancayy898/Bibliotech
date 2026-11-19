@@ -1,102 +1,147 @@
+
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../database/conexao.php';
 
 exigirPerfil(['admin', 'professor']);
 
+$mensagem = '';
+
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-
-$livro = [
-    'titulo' => '',
-    'autor' => '',
-    'ano_publicacao' => '',
-    'quantidade_total' => 1,
-    'quantidade_disponivel' => 1
-];
-
-if ($id) {
-    $stmt = $pdo->prepare('SELECT * FROM livros WHERE id = :id');
-    $stmt->execute(['id' => $id]);
-    $livro = $stmt->fetch() ?: $livro;
-}
-
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $titulo = trim($_POST['titulo'] ?? '');
-    $autor = trim($_POST['autor'] ?? '');
-    $ano_publicacao = filter_input(INPUT_POST, 'ano_publicacao', FILTER_VALIDATE_INT);
+    $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+
+    $titulo = trim($_POST['titulo']);
+    $autor = trim($_POST['autor']);
+    $ano = filter_input(INPUT_POST, 'ano', FILTER_VALIDATE_INT);
     $quantidade_total = filter_input(INPUT_POST, 'quantidade_total', FILTER_VALIDATE_INT);
+    $quantidade_disponivel = filter_input(INPUT_POST, 'quantidade_disponivel', FILTER_VALIDATE_INT);
 
     if (
+        !$id ||
         $titulo === '' ||
         $autor === '' ||
-        !$ano_publicacao ||
-        $ano_publicacao < 1 ||
-        !$quantidade_total ||
-        $quantidade_total < 1
+        $ano === false || $ano === null ||
+        $quantidade_total === false || $quantidade_total === null ||
+        $quantidade_disponivel === false || $quantidade_disponivel === null
     ) {
         $mensagem = 'Preencha todos os campos corretamente.';
+
+    } elseif (
+        $quantidade_total < 0 ||
+        $quantidade_disponivel < 0 ||
+        $quantidade_disponivel > $quantidade_total
+    ) {
+        $mensagem = 'Erro: quantidade disponível inválida!';
+
     } else {
 
-        $quantidade_disponivel = $quantidade_total;
-
         $stmt = $pdo->prepare(
-            'INSERT INTO livros
-            (titulo, autor, ano_publicacao, quantidade_total, quantidade_disponivel)
-            VALUES
-            (:titulo, :autor, :ano_publicacao, :quantidade_total, :quantidade_disponivel)'
+            "UPDATE livros
+             SET titulo = :titulo,
+                 autor = :autor,
+                 ano = :ano,
+                 quantidade_total = :total,
+                 quantidade_disponivel = :disponivel
+             WHERE id = :id"
         );
 
         $stmt->execute([
             'titulo' => $titulo,
             'autor' => $autor,
-            'ano_publicacao' => $ano_publicacao,
-            'quantidade_total' => $quantidade_total,
-            'quantidade_disponivel' => $quantidade_disponivel
+            'ano' => $ano,
+            'total' => $quantidade_total,
+            'disponivel' => $quantidade_disponivel,
+            'id' => $id
         ]);
 
-        header('Location: index.php');
-        exit;
+        $mensagem = 'Livro atualizado com sucesso!';
     }
 }
 
+if (!$id) {
+    die('ID inválido.');
+}
+
+$stmt = $pdo->prepare(
+    "SELECT id, titulo, autor, ano,
+            quantidade_total, quantidade_disponivel
+     FROM livros
+     WHERE id = :id"
+);
+
+$stmt->execute(['id' => $id]);
+$livro = $stmt->fetch();
+
+if (!$livro) {
+    die('Livro não encontrado.');
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $id ? 'Editar' : 'Novo' ?> livro</title>
+    <title>Editar livro</title>
     <link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body>
+
 <?php require_once __DIR__ . '/../../includes/header.php'; ?>
 
 <main class="container">
     <div class="card">
-        <h1><?= $id ? 'Editar livro' : 'Novo livro' ?></h1>
+
+        <h1>Editar livro</h1>
 
         <?php if (!empty($mensagem)): ?>
-            <div class="alert"><?= htmlspecialchars($mensagem) ?></div>
+            <div class="alert">
+                <?= htmlspecialchars($mensagem) ?>
+            </div>
         <?php endif; ?>
 
         <form method="post">
+
+            <input type="hidden" name="id"
+                   value="<?= $livro['id'] ?>">
+
             <label>Título</label>
-            <input type="text" name="titulo" value="<?= htmlspecialchars($livro['titulo']) ?>" required>
+            <input type="text" name="titulo"
+                   value="<?= htmlspecialchars($livro['titulo']) ?>"
+                   required>
 
             <label>Autor</label>
-            <input type="text" name="autor" value="<?= htmlspecialchars($livro['autor']) ?>" required>
+            <input type="text" name="autor"
+                   value="<?= htmlspecialchars($livro['autor']) ?>"
+                   required>
 
-            <label>Ano de publicação</label>
-            <input type="number" name="ano_publicacao" value="<?= htmlspecialchars($livro['ano_publicacao']) ?>">
+            <label>Ano</label>
+            <input type="number" name="ano"
+                   value="<?= htmlspecialchars($livro['ano']) ?>"
+                   required>
 
             <label>Quantidade total</label>
-            <input type="number" name="quantidade_total" min="1" value="<?= $livro['quantidade_total'] ?>" required>
+            <input type="number" name="quantidade_total"
+                   min="0"
+                   value="<?= $livro['quantidade_total'] ?>"
+                   required>
 
-            <button type="submit">Salvar</button>
+            <label>Quantidade disponível</label>
+            <input type="number" name="quantidade_disponivel"
+                   min="0"
+                   max="<?= $livro['quantidade_total'] ?>"
+                   value="<?= $livro['quantidade_disponivel'] ?>"
+                   required>
+
+            <button type="submit">Salvar alterações</button>
+
         </form>
+
     </div>
 </main>
+
 </body>
 </html>
