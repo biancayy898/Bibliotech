@@ -20,11 +20,47 @@ if ($id) {
     $livro = $stmt->fetch() ?: $livro;
 }
 
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // TODO: implementar INSERT e UPDATE.
-    // Regra: quantidade_disponivel não pode ser negativa nem maior que quantidade_total.
-    $mensagem = 'Formulário preparado. Implemente o salvamento nesta aula.';
+
+    $titulo = trim($_POST['titulo'] ?? '');
+    $autor = trim($_POST['autor'] ?? '');
+    $ano_publicacao = filter_input(INPUT_POST, 'ano_publicacao', FILTER_VALIDATE_INT);
+    $quantidade_total = filter_input(INPUT_POST, 'quantidade_total', FILTER_VALIDATE_INT);
+
+    if (
+        $titulo === '' ||
+        $autor === '' ||
+        !$ano_publicacao ||
+        $ano_publicacao < 1 ||
+        !$quantidade_total ||
+        $quantidade_total < 1
+    ) {
+        $mensagem = 'Preencha todos os campos corretamente.';
+    } else {
+
+        $quantidade_disponivel = $quantidade_total;
+
+        $stmt = $pdo->prepare(
+            'INSERT INTO livros
+            (titulo, autor, ano_publicacao, quantidade_total, quantidade_disponivel)
+            VALUES
+            (:titulo, :autor, :ano_publicacao, :quantidade_total, :quantidade_disponivel)'
+        );
+
+        $stmt->execute([
+            'titulo' => $titulo,
+            'autor' => $autor,
+            'ano_publicacao' => $ano_publicacao,
+            'quantidade_total' => $quantidade_total,
+            'quantidade_disponivel' => $quantidade_disponivel
+        ]);
+
+        header('Location: index.php');
+        exit;
+    }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
