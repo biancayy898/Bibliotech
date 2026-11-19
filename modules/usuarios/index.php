@@ -1,12 +1,31 @@
+
+
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../database/conexao.php';
 
 exigirPerfil(['admin', 'professor']);
 
-$usuarios = $pdo->query(
-    'SELECT id, nome, email, tipo, status FROM usuarios ORDER BY nome'
-)->fetchAll();
+if ($_SESSION['tipo'] === 'admin') {
+
+    // Administrador visualiza todos os usuários
+    $usuarios = $pdo->query(
+        'SELECT id, nome, email, tipo, status
+         FROM usuarios
+         ORDER BY nome'
+    )->fetchAll();
+
+} else {
+
+    // Professor visualiza somente alunos
+    $usuarios = $pdo->query(
+        "SELECT id, nome, email, tipo, status
+         FROM usuarios
+         WHERE tipo = 'aluno'
+         ORDER BY nome"
+    )->fetchAll();
+
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
